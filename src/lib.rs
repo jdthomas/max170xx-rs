@@ -58,53 +58,101 @@
 //!
 //! [driver-examples]: https://github.com/eldruin/driver-examples
 //!
-//! ### Read state of charge and cell voltage
+//! ### Read state of charge and cell voltage (sync)
 //!
 //! ```no_run
-//! use linux_embedded_hal::I2cdev;
+//! # #[cfg(not(feature = "async"))] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
 //! use max170xx::Max17043;
 //!
-//! let dev = I2cdev::new("/dev/i2c-1").unwrap();
-//! let mut sensor = Max17043::new(dev);
+//! # let mut sensor = Max17043::new(Mock::new(&[]));
 //! let soc = sensor.soc().unwrap();
 //! let voltage = sensor.voltage().unwrap();
 //! println!("Charge: {:.2}%", soc);
 //! println!("Voltage: {:.2}V", voltage);
+//! # }
+//! ```
+//!
+//! ### Read state of charge and cell voltage (async)
+//!
+//! ```no_run
+//! # #[cfg(feature = "async")] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
+//! use max170xx::Max17043;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+//! # let mut sensor = Max17043::new(Mock::new(&[]));
+//! let soc = sensor.soc().await.unwrap();
+//! let voltage = sensor.voltage().await.unwrap();
+//! println!("Charge: {:.2}%", soc);
+//! println!("Voltage: {:.2}V", voltage);
+//! # Ok(())
+//! # }
+//! # }
 //! ```
 //!
 //! ### Trigger software reset
 //!
 //! ```no_run
-//! use linux_embedded_hal::I2cdev;
+//! # #[cfg(not(feature = "async"))] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
 //! use max170xx::Max17043;
 //!
-//! let dev = I2cdev::new("/dev/i2c-1").unwrap();
-//! let mut sensor = Max17043::new(dev);
+//! # let mut sensor = Max17043::new(Mock::new(&[]));
 //! sensor.reset().unwrap();
+//! # }
+//! # #[cfg(feature = "async")] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
+//! # use max170xx::Max17043;
+//! # async fn example() {
+//! # let mut sensor = Max17043::new(Mock::new(&[]));
+//! sensor.reset().await.unwrap();
+//! # }
+//! # }
 //! ```
 //!
 //! ### Quick start
 //!
 //! ```no_run
-//! use linux_embedded_hal::I2cdev;
+//! # #[cfg(not(feature = "async"))] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
 //! use max170xx::Max17043;
 //!
-//! let dev = I2cdev::new("/dev/i2c-1").unwrap();
-//! let mut sensor = Max17043::new(dev);
+//! # let mut sensor = Max17043::new(Mock::new(&[]));
 //! // ... noisy power-up ...
 //! sensor.quickstart().unwrap();
+//! # }
+//! # #[cfg(feature = "async")] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
+//! # use max170xx::Max17043;
+//! # async fn example() {
+//! # let mut sensor = Max17043::new(Mock::new(&[]));
+//! // ... noisy power-up ...
+//! sensor.quickstart().await.unwrap();
+//! # }
+//! # }
 //! ```
 //!
 //! ### Read charge/discharge rate
 //!
 //! ```no_run
-//! use linux_embedded_hal::I2cdev;
+//! # #[cfg(not(feature = "async"))] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
 //! use max170xx::Max17048;
 //!
-//! let dev = I2cdev::new("/dev/i2c-1").unwrap();
-//! let mut sensor = Max17048::new(dev);
+//! # let mut sensor = Max17048::new(Mock::new(&[]));
 //! let rate = sensor.charge_rate().unwrap();
 //! println!("Charge rate: {:.2}%/h", rate);
+//! # }
+//! # #[cfg(feature = "async")] {
+//! # use embedded_hal_mock::eh1::i2c::Mock;
+//! # use max170xx::Max17048;
+//! # async fn example() {
+//! # let mut sensor = Max17048::new(Mock::new(&[]));
+//! let rate = sensor.charge_rate().await.unwrap();
+//! println!("Charge rate: {:.2}%/h", rate);
+//! # }
+//! # }
 //! ```
 //!
 

@@ -5,6 +5,7 @@ use crate::base::{
 };
 use embedded_hal_mock::eh1::i2c::Transaction as I2cTrans;
 
+#[cfg(not(feature = "async"))]
 macro_rules! get_float {
     ($name:ident, $create:ident, $destroy:ident, $method:ident, $reg:ident, $v0:expr, $v1:expr, $expected:expr) => {
         #[test]
@@ -22,6 +23,25 @@ macro_rules! get_float {
     };
 }
 
+#[cfg(feature = "async")]
+macro_rules! get_float {
+    ($name:ident, $create:ident, $destroy:ident, $method:ident, $reg:ident, $v0:expr, $v1:expr, $expected:expr) => {
+        #[tokio::test]
+        async fn $name() {
+            let mut sensor = $create(&[I2cTrans::write_read(
+                ADDR,
+                vec![Register::$reg],
+                vec![$v0, $v1],
+            )]);
+            let v = sensor.$method().await.unwrap();
+            assert!((v - 0.1) < $expected);
+            assert!((v + 0.1) > $expected);
+            $destroy(sensor);
+        }
+    };
+}
+
+#[cfg(not(feature = "async"))]
 macro_rules! cmd_test {
     ($name:ident, $create:ident, $destroy:ident, $method:ident, $reg:ident, $cmd:ident) => {
         #[test]
@@ -40,6 +60,26 @@ macro_rules! cmd_test {
     };
 }
 
+#[cfg(feature = "async")]
+macro_rules! cmd_test {
+    ($name:ident, $create:ident, $destroy:ident, $method:ident, $reg:ident, $cmd:ident) => {
+        #[tokio::test]
+        async fn $name() {
+            let mut sensor = $create(&[I2cTrans::write(
+                ADDR,
+                vec![
+                    Register::$reg,
+                    ((Command::$cmd & 0xFF00) >> 8) as u8,
+                    (Command::$cmd & 0xFF) as u8,
+                ],
+            )]);
+            sensor.$method().await.unwrap();
+            $destroy(sensor);
+        }
+    };
+}
+
+#[cfg(not(feature = "async"))]
 macro_rules! common_tests {
     ($create:ident, $destroy:ident, $ic:ident) => {
         mod $ic {
@@ -60,6 +100,36 @@ macro_rules! common_tests {
                     vec![0xAB, 0xCD],
                 )]);
                 let v = sensor.version().unwrap();
+                assert_eq!(v, version);
+                $destroy(sensor);
+            }
+
+            cmd_test!(quickstart, $create, $destroy, quickstart, MODE, QSTRT);
+        }
+    };
+}
+
+#[cfg(feature = "async")]
+macro_rules! common_tests {
+    ($create:ident, $destroy:ident, $ic:ident) => {
+        mod $ic {
+            use super::*;
+
+            #[test]
+            fn can_create_and_destroy() {
+                let sensor = $create(&[]);
+                $destroy(sensor);
+            }
+
+            #[tokio::test]
+            async fn can_get_version() {
+                let version = 0xABCD;
+                let mut sensor = $create(&[I2cTrans::write_read(
+                    ADDR,
+                    vec![Register::VERSION],
+                    vec![0xAB, 0xCD],
+                )]);
+                let v = sensor.version().await.unwrap();
                 assert_eq!(v, version);
                 $destroy(sensor);
             }
@@ -93,6 +163,7 @@ mod max17044 {
     cmd_test!(reset, new_44, destroy_44, reset, COMMAND, POR_43_44);
 }
 
+#[cfg(not(feature = "async"))]
 macro_rules! set_table_test {
     ($name:ident, $create:ident, $destroy:ident) => {
         #[test]
@@ -117,6 +188,36 @@ macro_rules! set_table_test {
                 I2cTrans::write(ADDR, vec![0x3E, 0x00]),
             ]);
             sensor.set_table(&data).unwrap();
+            $destroy(sensor);
+        }
+    };
+}
+
+#[cfg(feature = "async")]
+macro_rules! set_table_test {
+    ($name:ident, $create:ident, $destroy:ident) => {
+        #[tokio::test]
+        async fn $name() {
+            let mut expected: Vec<u8> = [0; 129]
+                .iter()
+                .enumerate()
+                .map(|(i, _)| {
+                    return i as u8;
+                })
+                .collect();
+            expected[0] = 0x40;
+            let mut data = [0; 64];
+            for i in 0..data.len() {
+                data[i] = (((i * 2 + 1) << 8) | i * 2 + 2) as u16;
+            }
+            let mut sensor = $create(&[
+                I2cTrans::write(ADDR, vec![0x3F, 0x57]),
+                I2cTrans::write(ADDR, vec![0x3E, 0x4A]),
+                I2cTrans::write(ADDR, expected),
+                I2cTrans::write(ADDR, vec![0x3F, 0x00]),
+                I2cTrans::write(ADDR, vec![0x3E, 0x00]),
+            ]);
+            sensor.set_table(&data).await.unwrap();
             $destroy(sensor);
         }
     };

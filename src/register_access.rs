@@ -17,11 +17,12 @@ impl Command {
     pub const QSTRT: u16 = 0x4000;
 }
 
+#[cfg(not(feature = "async"))]
 macro_rules! impl_register_access {
     ($name:ident) => {
         impl<I2C, E> $name<I2C>
         where
-            I2C: i2c::I2c<Error = E>,
+            I2C: embedded_hal::i2c::I2c<Error = E>,
         {
             pub(crate) fn write_register(
                 &mut self,
@@ -47,6 +48,45 @@ macro_rules! impl_register_access {
                 let mut data = [0; 2];
                 self.i2c
                     .write_read(ADDR, &[register], &mut data)
+                    .map_err(Error::I2C)
+                    .and(Ok((u16::from(data[0]) << 8) | u16::from(data[1])))
+            }
+        }
+    };
+}
+
+#[cfg(feature = "async")]
+macro_rules! impl_register_access {
+    ($name:ident) => {
+        impl<I2C, E> $name<I2C>
+        where
+            I2C: embedded_hal_async::i2c::I2c<Error = E>,
+        {
+            pub(crate) async fn write_register(
+                &mut self,
+                register: u8,
+                data: u16,
+            ) -> Result<(), Error<E>> {
+                let payload: [u8; 3] =
+                    [register, ((data & 0xFF00) >> 8) as u8, (data & 0xFF) as u8];
+                self.i2c.write(ADDR, &payload).await.map_err(Error::I2C)
+            }
+
+            #[allow(unused)]
+            pub(crate) async fn write_u8_register(
+                &mut self,
+                register: u8,
+                data: u8,
+            ) -> Result<(), Error<E>> {
+                let payload: [u8; 2] = [register, data];
+                self.i2c.write(ADDR, &payload).await.map_err(Error::I2C)
+            }
+
+            pub(crate) async fn read_register(&mut self, register: u8) -> Result<u16, Error<E>> {
+                let mut data = [0; 2];
+                self.i2c
+                    .write_read(ADDR, &[register], &mut data)
+                    .await
                     .map_err(Error::I2C)
                     .and(Ok((u16::from(data[0]) << 8) | u16::from(data[1])))
             }
